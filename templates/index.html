@@ -1,0 +1,138 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Evaluación Difusa de Riesgo Crediticio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+  <div class="contenedor">
+    <header class="encabezado">
+      <h1>Evaluación de Riesgo Crediticio</h1>
+      <p>Modelo neuro-difuso para apoyo en decisiones de crédito</p>
+    </header>
+
+    <main class="principal">
+      <section class="tarjeta">
+        <h2>Datos del solicitante</h2>
+        <form id="form-riesgo" class="formulario">
+
+          <div class="campo">
+            <label for="limite_credito">Límite de crédito solicitado (S/ o $):</label>
+            <input type="number" id="limite_credito" min="0" required>
+          </div>
+
+          <div class="campo">
+            <label for="deuda_actual">Deuda total actual (0 - 1):</label>
+            <input type="number" id="deuda_actual" min="0" required>
+          </div>
+
+          <div class="campo">
+            <label for="max_atraso">
+              Máximo atraso histórico (ej. 0 = al día, 1 = 1 mes, 2 = 2 meses, etc.):
+            </label>
+            <input type="number" id="max_atraso" step="1" required>
+          </div>
+
+          <div class="campo">
+            <label for="edad">Edad del solicitante:</label>
+            <input type="number" id="edad" min="18" max="100" required>
+          </div>
+
+          <div class="campo">
+            <label for="porcentaje_pago">
+              % promedio de pago mensual (0–150, donde 100 = paga todo):
+            </label>
+            <input type="number" id="porcentaje_pago" min="0" max="150" required>
+          </div>
+
+          <button type="submit" class="boton">Calcular riesgo</button>
+        </form>
+      </section>
+
+      <section class="tarjeta resultado" id="tarjeta-resultado">
+        <h2>Resultado</h2>
+        <div id="resultado">
+          Ingresa los datos del solicitante y presiona <strong>Calcular riesgo</strong>.
+        </div>
+      </section>
+    </main>
+
+    <footer class="pie">
+      <p>Prototipo académico &middot; Modelo neuro-difuso en Flask + skfuzzy</p>
+    </footer>
+  </div>
+
+  <script>
+    const form = document.getElementById('form-riesgo');
+    const resultadoDiv = document.getElementById('resultado');
+    const tarjetaResultado = document.getElementById('tarjeta-resultado');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const limite_credito   = parseFloat(document.getElementById('limite_credito').value);
+      const deuda_actual     = parseFloat(document.getElementById('deuda_actual').value);
+      const max_atraso       = parseFloat(document.getElementById('max_atraso').value);
+      const edad             = parseFloat(document.getElementById('edad').value);
+      const porcentaje_pago  = parseFloat(document.getElementById('porcentaje_pago').value);
+
+      const payload = {
+        limite_credito,
+        deuda_actual,
+        max_atraso,
+        edad,
+        porcentaje_pago
+      };
+
+      resultadoDiv.textContent = "Calculando riesgo...";
+      tarjetaResultado.classList.add('cargando');
+
+      try {
+        const resp = await fetch('/api/riesgo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          resultadoDiv.textContent = "Error en el servidor.";
+          tarjetaResultado.classList.remove('cargando');
+          return;
+        }
+
+        const data = await resp.json();
+
+        const riesgoTexto = data.riesgo_etiqueta.toUpperCase();
+        let claseRiesgo = '';
+        if (riesgoTexto === 'ALTO') claseRiesgo = 'riesgo-alto';
+        else if (riesgoTexto === 'MEDIO') claseRiesgo = 'riesgo-medio';
+        else claseRiesgo = 'riesgo-bajo';
+
+        resultadoDiv.innerHTML = `
+          <div class="resumen-datos">
+            <p><strong>Límite de crédito:</strong> ${data.limite_credito}</p>
+            <p><strong>Deuda actual:</strong> ${data.deuda_actual}</p>
+            <p><strong>Máx. atraso histórico:</strong> ${data.max_atraso}</p>
+            <p><strong>Edad:</strong> ${data.edad}</p>
+            <p><strong>% pago mensual:</strong> ${data.porcentaje_pago}</p>
+          </div>
+          <hr>
+          <div class="resumen-riesgo ${claseRiesgo}">
+            <p class="titulo-riesgo">Riesgo crediticio</p>
+            <p class="valor-riesgo-num">${data.riesgo_crisp.toFixed(3)}</p>
+            <p class="valor-riesgo-etq">${riesgoTexto}</p>
+          </div>
+        `;
+
+      } catch (err) {
+        console.error(err);
+        resultadoDiv.textContent = "Error al conectar con la API.";
+      } finally {
+        tarjetaResultado.classList.remove('cargando');
+      }
+    });
+  </script>
+</body>
+</html>
