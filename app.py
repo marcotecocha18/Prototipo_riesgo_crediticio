@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, request, jsonify, render_template
 from fuzzy_model import evaluar_riesgo
 
@@ -39,5 +38,6 @@ def api_riesgo():
         "riesgo_etiqueta": etiqueta
     })
 
+# Para Vercel
 if __name__ == "__main__":
     app.run(debug=True)
